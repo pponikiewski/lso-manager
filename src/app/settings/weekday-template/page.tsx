@@ -42,7 +42,7 @@ export default function WeekdayTemplatePage() {
   // Pobierz szablon
   const { data: templates, isLoading: templatesLoading } = useQuery({
     queryKey: ["weekday-templates"],
-    queryFn: getWeekdayTemplates,
+    queryFn: () => getWeekdayTemplates(),
   });
 
   // Pobierz ministrantów
@@ -63,7 +63,7 @@ export default function WeekdayTemplatePage() {
 
   // Mutacja usuwania
   const deleteMutation = useMutation({
-    mutationFn: deleteWeekdayTemplate,
+    mutationFn: ({ id, endDate }: { id: number; endDate: string }) => deleteWeekdayTemplate(id, endDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["weekday-templates"] });
     },
@@ -88,16 +88,19 @@ export default function WeekdayTemplatePage() {
   // Dodaj ministranta
   const handleAdd = (day: DayOfWeek, slot: TimeSlot) => {
     if (!selectedMinistrant) return;
+    // Format today's date as YYYY-MM-DD for valid_from
+    const today = new Date().toISOString().split('T')[0];
     addMutation.mutate({
       ministrant_id: Number(selectedMinistrant),
       day_of_week: day,
       time_slot: slot,
+      valid_from: today,
     });
   };
 
-  // Usuń ministranta
+  // Usuń ministranta - przekaż datę daleko w przyszłość żeby zawsze usunąć trwale
   const handleDelete = (templateId: number) => {
-    deleteMutation.mutate(templateId);
+    deleteMutation.mutate({ id: templateId, endDate: "9999-12-31" });
   };
 
   const isLoading = templatesLoading || ministrantsLoading;
