@@ -41,3 +41,43 @@ export async function saveScheduleEntry(payload: {
 
   if (error) throw error;
 }
+
+// 4. Pobierz grafik tygodniowy
+export async function getWeekdayEntries(startDate: string, endDate: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("weekday_schedule")
+    .select("*, ministrants(first_name, last_name)") // Pobierz imiona
+    .gte("date", startDate)
+    .lte("date", endDate);
+  
+  if (error) throw error;
+  // Zwracamy z typem any, żeby nie komplikować teraz pliku db.ts, 
+  // w dużym projekcie dodałbyś typ WeekdayEntry
+  return data;
+}
+
+// 5. Dodaj wpis do grafiku tygodniowego
+export async function addWeekdayEntry(payload: {
+  date: string;
+  time_slot: "RANO" | "WIECZOR";
+  ministrant_id: number;
+}) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("weekday_schedule")
+    .insert(payload); // Tu używamy insert, bo w jednej komórce może być kilku ministrantów
+  
+  if (error) throw error;
+}
+
+// 6. Usuń wpis
+export async function deleteWeekdayEntry(entryId: number) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("weekday_schedule")
+    .delete()
+    .eq("id", entryId);
+  
+  if (error) throw error;
+}

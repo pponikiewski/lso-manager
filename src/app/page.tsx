@@ -2,6 +2,7 @@ import { MinistrantsList } from "@/components/ministrants/ministrants-list";
 import { AddMinistrantDialog } from "@/components/ministrants/add-ministrant-dialog";
 import { SundaySchedule } from "@/components/schedule/sunday-schedule"; // <--- Import grafiku
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // <--- Import zakładek
+import { WeekdaySchedule } from "@/components/schedule/weekday-schedule";
 
 export default function Home() {
   return (
@@ -18,6 +19,8 @@ export default function Home() {
         <TabsList className="grid w-full grid-cols-2 mb-8">
           <TabsTrigger value="ministrants">Lista Ministrantów</TabsTrigger>
           <TabsTrigger value="schedule">Grafik Niedzielny</TabsTrigger>
+            <TabsTrigger value="weekday">Grafik Tygodniowy</TabsTrigger> {/* NOWE */}
+
         </TabsList>
         
         <TabsContent value="ministrants">
@@ -27,6 +30,9 @@ export default function Home() {
         <TabsContent value="schedule">
           <SundaySchedule />
         </TabsContent>
+        <TabsContent value="weekday">
+  <WeekdaySchedule />
+</TabsContent>
       </Tabs>
     </main>
   );
