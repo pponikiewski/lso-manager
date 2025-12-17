@@ -1,9 +1,14 @@
+"use client";
+
+import { useState } from "react";
 import { DashboardLayout, Header } from "@/components/layout";
 import { WeekdaySchedule } from "@/components/schedule/weekday-schedule";
 import { Button } from "@/components/ui/button";
-import { FileDown, RefreshCw } from "lucide-react";
+import { FileDown, Pencil, Check } from "lucide-react";
 
 export default function WeekdaySchedulePage() {
+  const [editMode, setEditMode] = useState(false);
+
   return (
     <DashboardLayout>
       <Header
@@ -15,22 +20,40 @@ export default function WeekdaySchedulePage() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-muted-foreground">
-              Klasyczna tabela grafiku - wiersze to pory dnia, kolumny to dni miesiąca
+              {editMode 
+                ? "Tryb edycji - przypisz ministrantów do dni i godzin"
+                : "Klasyczna tabela grafiku - wiersze to pory dnia, kolumny to dni miesiąca"
+              }
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" className="gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Generuj
+            <Button 
+              variant={editMode ? "default" : "outline"} 
+              className="gap-2"
+              onClick={() => setEditMode(!editMode)}
+            >
+              {editMode ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  Zakończ edycję
+                </>
+              ) : (
+                <>
+                  <Pencil className="h-4 w-4" />
+                  Edytuj grafik
+                </>
+              )}
             </Button>
-            <Button variant="outline" className="gap-2">
-              <FileDown className="h-4 w-4" />
-              Eksport PDF
-            </Button>
+            {!editMode && (
+              <Button variant="outline" className="gap-2">
+                <FileDown className="h-4 w-4" />
+                Eksport PDF
+              </Button>
+            )}
           </div>
         </div>
         
-        <WeekdaySchedule />
+        <WeekdaySchedule editMode={editMode} onEditModeChange={setEditMode} />
       </div>
     </DashboardLayout>
   );

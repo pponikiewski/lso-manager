@@ -1,160 +1,197 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { 
-  startOfMonth, 
-  endOfMonth, 
-  eachDayOfInterval, 
-  isSunday, 
-  format, 
-  addMonths, 
-  subMonths 
+import { useQuery } from "@tanstack/react-query";
+import {
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSunday,
+  format,
+  addMonths,
+  subMonths,
+  getDate,
 } from "date-fns";
 import { pl } from "date-fns/locale";
-import { getMassTimes, getScheduleEntries, saveScheduleEntry } from "@/lib/api/schedule";
-import { getGroups } from "@/lib/api/ministrants";
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { getGroups, getMinistrants } from "@/lib/api/ministrants";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// Status obecności
+type AttendanceStatus = "N" | "O" | null; // N = obecny (zielony), O = nieobecny (czerwony)
 
 export function SundaySchedule() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const queryClient = useQueryClient();
 
-  // 1. Obliczanie dat (Niedziele w miesiącu)
+  // Obliczanie niedziel w miesiącu
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  
-  // POPRAWKA TUTAJ: Używamy funkcji strzałkowej
   const sundays = daysInMonth.filter((day) => isSunday(day));
 
-  // 2. Pobieranie danych
-  const { data: massTimes } = useQuery({
-    queryKey: ["massTimes"],
-    queryFn: getMassTimes,
-  });
-
+  // Pobieranie danych
   const { data: groups } = useQuery({
     queryKey: ["groups"],
     queryFn: getGroups,
   });
 
-  const { data: scheduleEntries } = useQuery({
-    queryKey: ["schedule", format(monthStart, "yyyy-MM-dd")],
-    queryFn: () => getScheduleEntries(format(monthStart, "yyyy-MM-dd"), format(monthEnd, "yyyy-MM-dd")),
+  const { data: ministrants } = useQuery({
+    queryKey: ["ministrants"],
+    queryFn: getMinistrants,
   });
 
-  // 3. Mutacja
-  const mutation = useMutation({
-    mutationFn: (payload: { date: string; mass_time_id: number; group_id: number }) =>
-      saveScheduleEntry(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["schedule"] });
+  // Mock data - w przyszłości z bazy danych
+  const mockGuilds = [
+    {
+      id: 1,
+      name: "GILDIA I",
+      ministrants: [
+        { id: 1, name: "Kwoczyński Antoni", role: "ministrant" },
+      ],
     },
+    {
+      id: 2,
+      name: "GILDIA II",
+      ministrants: [
+        { id: 2, name: "Rudnicki Marek", role: "ministrant" },
+        { id: 3, name: "Rudnicki Piotr", role: "Ministrant" },
+      ],
+    },
+    {
+      id: 3,
+      name: "GILDIA III",
+      ministrants: [
+        { id: 4, name: "Mędrzak Maciej", role: "ministrant" },
+      ],
+    },
+  ];
+
+  // Mock attendance data
+  const [attendance, setAttendance] = useState<Record<string, Record<number, AttendanceStatus>>>({
+    "7": { 1: "N" },
+    "14": { 2: "N" },
+    "21": { 1: "N", 3: "O" },
+    "28": {},
   });
 
-  const getAssignedGroupId = (dateStr: string, massTimeId: number) => {
-    const entry = scheduleEntries?.find(
-      (e) => e.date === dateStr && e.mass_time_id === massTimeId
-    );
-    return entry?.group_id?.toString() || "";
+  const getAttendance = (sundayDate: number, ministrantId: number): AttendanceStatus => {
+    return attendance[sundayDate.toString()]?.[ministrantId] || null;
   };
 
-  const handleGroupChange = (dateStr: string, massTimeId: number, groupId: string) => {
-    mutation.mutate({
-      date: dateStr,
-      mass_time_id: massTimeId,
-      group_id: Number(groupId),
+  const handleCellClick = (sundayDate: number, ministrantId: number) => {
+    setAttendance((prev) => {
+      const dayKey = sundayDate.toString();
+      const currentStatus = prev[dayKey]?.[ministrantId] || null;
+      
+      // Cykl: null -> N -> O -> null
+      let newStatus: AttendanceStatus = null;
+      if (currentStatus === null) newStatus = "N";
+      else if (currentStatus === "N") newStatus = "O";
+      else newStatus = null;
+
+      return {
+        ...prev,
+        [dayKey]: {
+          ...prev[dayKey],
+          [ministrantId]: newStatus,
+        },
+      };
     });
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-xl font-bold capitalize">
+    <div className="space-y-6">
+      {/* Header z nawigacją */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold capitalize">
           {format(currentMonth, "LLLL yyyy", { locale: pl })}
-        </CardTitle>
+        </h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => window.print()}>
-  <Printer className="h-4 w-4" />
-</Button>
-          <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-      </CardHeader>
-      <CardContent className="card-content">
-        <div className="overflow-x-auto">
-            <Table className="min-w-[600px]">
-            <TableHeader>
-                <TableRow>
-                <TableHead className="w-[100px]">Godzina</TableHead>
-                {sundays.map((sunday) => (
-                    <TableHead key={sunday.toISOString()} className="text-center min-w-[120px]">
-                    {format(sunday, "dd.MM", { locale: pl })}
-                    </TableHead>
-                ))}
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {massTimes?.map((mass) => (
-                <TableRow key={mass.id}>
-                    <TableCell className="font-medium">
-                    {mass.start_time}
-                    <div className="text-xs text-muted-foreground">{mass.description}</div>
-                    </TableCell>
-                    
-                    {sundays.map((sunday) => {
-                    const dateStr = format(sunday, "yyyy-MM-dd");
-                    const assignedGroupId = getAssignedGroupId(dateStr, mass.id);
+      </div>
 
-                    return (
-                        <TableCell key={`${mass.id}-${dateStr}`} className="p-2 text-center">
-                        <Select 
-                            value={assignedGroupId} 
-                            onValueChange={(val) => handleGroupChange(dateStr, mass.id, val)}
-                        >
-                            <SelectTrigger className={`h-8 w-full ${assignedGroupId ? "bg-primary/10 border-primary/20 font-semibold" : "text-muted-foreground"}`}>
-                            <SelectValue placeholder="-" />
-                            </SelectTrigger>
-                            <SelectContent>
-                            {groups?.map((g) => (
-                                <SelectItem key={g.id} value={g.id.toString()}>
-                                {g.name}
-                                </SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                        </TableCell>
-                    );
-                    })}
-                </TableRow>
-                ))}
-            </TableBody>
-            </Table>
-        </div>
-      </CardContent>
-    </Card>
+      {/* Gildie */}
+      <div className="space-y-4">
+        {mockGuilds.map((guild) => (
+          <div key={guild.id} className="rounded-lg border bg-card overflow-hidden">
+            {/* Header gildii */}
+            <div className="flex items-center gap-3 bg-muted/50 px-4 py-2.5 border-b">
+              <span className="font-bold text-sm">{guild.name}</span>
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                {guild.ministrants.length} osób
+              </span>
+            </div>
+
+            {/* Tabela */}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3 w-[280px]">
+                      Nazwisko i Imię
+                    </th>
+                    {sundays.map((sunday) => (
+                      <th
+                        key={sunday.toISOString()}
+                        className="text-center text-xs font-medium px-2 py-3 w-[60px]"
+                      >
+                        <div className="text-red-500 text-[10px]">ND</div>
+                        <div className="text-foreground font-bold">{getDate(sunday)}</div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {guild.ministrants.map((ministrant) => (
+                    <tr key={ministrant.id} className="border-b last:border-0 hover:bg-muted/30">
+                      <td className="px-4 py-3">
+                        <span className="font-medium">{ministrant.name}</span>
+                        <span className="text-muted-foreground text-sm ml-2">
+                          ({ministrant.role})
+                        </span>
+                      </td>
+                      {sundays.map((sunday) => {
+                        const dayNum = getDate(sunday);
+                        const status = getAttendance(dayNum, ministrant.id);
+                        return (
+                          <td key={sunday.toISOString()} className="px-2 py-3 text-center">
+                            <button
+                              onClick={() => handleCellClick(dayNum, ministrant.id)}
+                              className={cn(
+                                "w-10 h-10 rounded-lg text-sm font-bold transition-all",
+                                status === "N" && "bg-green-600 text-white hover:bg-green-700",
+                                status === "O" && "bg-red-600 text-white hover:bg-red-700",
+                                !status && "bg-muted/30 border border-dashed border-muted-foreground/30 hover:border-muted-foreground/50 hover:bg-muted/50"
+                              )}
+                            >
+                              {status}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
