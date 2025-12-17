@@ -8,6 +8,7 @@ import { FileDown, Pencil, Check } from "lucide-react";
 
 export default function WeekdaySchedulePage() {
   const [editMode, setEditMode] = useState(false);
+  const [exportFn, setExportFn] = useState<(() => void) | null>(null);
 
   return (
     <DashboardLayout>
@@ -45,7 +46,11 @@ export default function WeekdaySchedulePage() {
               )}
             </Button>
             {!editMode && (
-              <Button variant="outline" className="gap-2">
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={() => exportFn?.()}
+              >
                 <FileDown className="h-4 w-4" />
                 Eksport PDF
               </Button>
@@ -53,7 +58,11 @@ export default function WeekdaySchedulePage() {
           </div>
         </div>
         
-        <WeekdaySchedule editMode={editMode} onEditModeChange={setEditMode} />
+        <WeekdaySchedule 
+          editMode={editMode} 
+          onEditModeChange={setEditMode}
+          onExportReady={(fn) => setExportFn(() => fn)}
+        />
       </div>
     </DashboardLayout>
   );

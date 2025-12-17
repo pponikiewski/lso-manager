@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   startOfMonth,
@@ -21,6 +21,7 @@ import {
   addWeekdayTemplate,
   deleteWeekdayTemplate 
 } from "@/lib/api/schedule";
+import { exportWeekdayScheduleToPDF } from "@/lib/export-pdf";
 import { getMinistrants } from "@/lib/api/ministrants";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,9 +51,10 @@ const SLOTS: { id: TimeSlot; name: string; time: string }[] = [
 interface WeekdayScheduleProps {
   editMode?: boolean;
   onEditModeChange?: (editMode: boolean) => void;
+  onExportReady?: (exportFn: () => void) => void;
 }
 
-export function WeekdaySchedule({ editMode = false, onEditModeChange }: WeekdayScheduleProps) {
+export function WeekdaySchedule({ editMode = false, onEditModeChange, onExportReady }: WeekdayScheduleProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [addingTo, setAddingTo] = useState<{ day: DayOfWeek; slot: TimeSlot } | null>(null);
   // Map: "dayId-slotId" -> array of selected ministrant ids
@@ -168,6 +170,22 @@ export function WeekdaySchedule({ editMode = false, onEditModeChange }: WeekdayS
     const prevMonthEnd = format(lastDayOfMonth(subMonths(currentMonth, 1)), "yyyy-MM-dd");
     deleteMutation.mutate({ id: templateId, endDate: prevMonthEnd });
   };
+
+  // Eksport do PDF
+  const handleExportPDF = () => {
+    exportWeekdayScheduleToPDF({
+      templates: templates || [],
+      attendance: attendance || [],
+      currentMonth,
+    });
+  };
+
+  // Przekaż funkcję eksportu do rodzica
+  useEffect(() => {
+    if (onExportReady) {
+      onExportReady(handleExportPDF);
+    }
+  }, [templates, attendance, currentMonth, onExportReady]);
 
   const isLoading = templatesLoading || (editMode && ministrantsLoading) || (!editMode && attendanceLoading);
 
