@@ -43,9 +43,9 @@ const WEEKDAYS: { id: DayOfWeek; full: string; short: string }[] = [
   { id: 6, full: "Sobota", short: "SOBOTA" },
 ];
 
-const SLOTS: { id: TimeSlot; name: string }[] = [
-  { id: "RANO", name: "Rano" },
-  { id: "WIECZOR", name: "Wieczór" },
+const SLOTS: { id: TimeSlot; name: string; time: string }[] = [
+  { id: "RANO", name: "Rano", time: "7:00" },
+  { id: "WIECZOR", name: "Wieczór", time: "18:00" },
 ];
 
 interface WeekdayScheduleProps {
@@ -242,7 +242,7 @@ export function WeekdaySchedule({ editMode = false, onEditModeChange }: WeekdayS
                   <div className="flex items-center gap-3">
                     <span className="font-bold">{day.full}</span>
                     <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                      {slot.name}
+                      {slot.name} {slot.time}
                     </span>
                   </div>
                   <span className="text-xs text-muted-foreground">
@@ -346,30 +346,30 @@ export function WeekdaySchedule({ editMode = false, onEditModeChange }: WeekdayS
                     )}
                   </div>
                 ) : (
-                  // TRYB NORMALNY - tabela z obecnością
+                  // TRYB NORMALNY - tabela jak w referencji
                   <div className="overflow-x-auto">
-                    <table className="w-full">
+                    <table className="w-full border-collapse text-[12px] leading-tight">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3 w-[180px]">
+                          <th className="text-left text-[12px] font-semibold text-muted-foreground uppercase px-3 py-2 min-w-[140px]">
                             Ministrant
                           </th>
                           {daysOfThisWeekday.map((dayDate) => (
                             <th
                               key={dayDate.toISOString()}
-                              className="text-center text-xs font-medium text-muted-foreground px-1 py-3 w-[40px]"
+                              className="text-center text-[12px] font-semibold text-muted-foreground px-1.5 py-1 w-[28px] border-l border-border/40"
                             >
                               {getDate(dayDate)}
                             </th>
                           ))}
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-border/40">
                         {slotTemplates.length === 0 ? (
                           <tr>
                             <td
                               colSpan={daysOfThisWeekday.length + 1}
-                              className="px-4 py-8 text-center text-sm text-muted-foreground"
+                              className="px-3 py-6 text-center text-sm text-muted-foreground"
                             >
                               Brak przypisanych ministrantów
                             </td>
@@ -382,29 +382,34 @@ export function WeekdaySchedule({ editMode = false, onEditModeChange }: WeekdayS
                             const fullName = `${ministrant.last_name} ${ministrant.first_name}`;
 
                             return (
-                              <tr key={template.id} className="border-b last:border-0 hover:bg-muted/30">
-                                <td className="px-4 py-2.5">
-                                  <span className="font-medium text-sm">{fullName}</span>
+                              <tr key={template.id} className="hover:bg-muted/20 transition-colors">
+                                <td className="px-3 py-2.5 text-[13px] font-semibold leading-tight whitespace-nowrap">
+                                  {fullName}
                                 </td>
                                 {daysOfThisWeekday.map((dayDate) => {
                                   const dateStr = format(dayDate, "yyyy-MM-dd");
                                   const status = getAttendanceStatus(ministrant.id, dateStr, slot.id);
 
                                   return (
-                                    <td key={dayDate.toISOString()} className="px-1 py-2.5 text-center">
-                                      <button
-                                        onClick={() => handleCellClick(ministrant.id, dateStr, slot.id)}
-                                        disabled={attendanceMutation.isPending}
-                                        className={cn(
-                                          "w-8 h-8 rounded text-xs font-bold transition-all",
-                                          status === true && "bg-green-600 text-white hover:bg-green-700",
-                                          status === false && "bg-red-600 text-white hover:bg-red-700",
-                                          status === null && "bg-muted/30 border border-dashed border-muted-foreground/30 hover:border-muted-foreground/50 hover:bg-muted/50"
-                                        )}
-                                      >
-                                        {status === true && "✓"}
-                                        {status === false && "✗"}
-                                      </button>
+                                    <td
+                                      key={dayDate.toISOString()}
+                                      className="p-0 text-center align-middle border-l border-border/40"
+                                    >
+                                      <div className="flex items-center justify-center py-[5px]">
+                                        <button
+                                          onClick={() => handleCellClick(ministrant.id, dateStr, slot.id)}
+                                          disabled={attendanceMutation.isPending}
+                                          className={cn(
+                                            "w-7 h-7 rounded text-[12px] font-semibold leading-none transition-all",
+                                            status === true && "bg-green-600 text-white hover:bg-green-700",
+                                            status === false && "bg-red-600 text-white hover:bg-red-700",
+                                            status === null && "bg-muted/30 border border-muted-foreground/30 hover:border-muted-foreground/50 hover:bg-muted/50"
+                                          )}
+                                        >
+                                          {status === true && "o"}
+                                          {status === false && "n"}
+                                        </button>
+                                      </div>
                                     </td>
                                   );
                                 })}

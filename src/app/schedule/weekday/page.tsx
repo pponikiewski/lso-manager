@@ -16,7 +16,7 @@ export default function WeekdaySchedulePage() {
         description="Grafik służby ministrantów na msze w dni powszednie"
       />
       
-      <div className="p-6 space-y-6">
+      <div className="p-6 space-y-6 max-w-6xl mx-auto">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-muted-foreground">
