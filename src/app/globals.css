@@ -123,3 +123,63 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  /* 1. Ukrywamy wszystko, co nie jest grafikiem */
+  body * {
+    visibility: hidden;
+  }
+
+  /* 2. Pokazujemy tylko kontent wewnątrz karty grafiku */
+  /* Szukamy elementu z rolą table lub klasy karty, 
+     ale najbezpieczniej odnieść się do głównego kontenera tabeli */
+  .card-content, .card-content * {
+    visibility: visible;
+  }
+
+  /* Pozycjonujemy tabelę na samej górze kartki */
+  .card-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* 3. Wymuszamy "Light Mode" na papierze */
+  :root {
+    --background: 0 0% 100% !important;
+    --foreground: 0 0% 0% !important;
+    --muted: 0 0% 96% !important;
+    --muted-foreground: 0 0% 0% !important;
+    --border: 0 0% 0% !important; /* Czarne ramki */
+  }
+
+  /* 4. Resetujemy style tła i kolorów */
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+
+  /* Usuwamy tła z badge'y i selectów, żeby oszczędzać tusz */
+  button, [role="combobox"] {
+    background: transparent !important;
+    border: none !important;
+    color: black !important;
+    font-weight: bold !important;
+    appearance: none !important;
+    padding: 0 !important;
+  }
+  
+  /* Ukrywamy ikony strzałek w selectach jeśli są */
+  svg {
+    display: none !important;
+  }
+
+  /* Wymuszamy czarne ramki w tabeli */
+  table, th, td {
+    border: 1px solid black !important;
+    border-collapse: collapse !important;
+  }
+}

@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Printer } from "lucide-react";
 
 export function SundaySchedule() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -93,6 +93,9 @@ export function SundaySchedule() {
           {format(currentMonth, "LLLL yyyy", { locale: pl })}
         </CardTitle>
         <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={() => window.print()}>
+  <Printer className="h-4 w-4" />
+</Button>
           <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -101,7 +104,7 @@ export function SundaySchedule() {
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="card-content">
         <div className="overflow-x-auto">
             <Table className="min-w-[600px]">
             <TableHeader>
