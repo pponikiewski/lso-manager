@@ -38,3 +38,20 @@ export type AttendanceLog = {
 export type MinistrantWithLogs = Ministrant & {
   attendance_logs: AttendanceLog[];
 };
+
+export type MassTime = {
+  id: number;
+  start_time: string;
+  description: string | null;
+  display_order: number;
+};
+
+export type ScheduleEntry = {
+  id: number;
+  date: string;
+  mass_time_id: number;
+  group_id: number | null;
+  // Opcjonalne do joinów:
+  groups?: Group;
+  mass_times?: MassTime;
+};
