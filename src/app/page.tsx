@@ -1,8 +1,9 @@
 import { MinistrantsList } from "@/components/ministrants/ministrants-list";
 import { AddMinistrantDialog } from "@/components/ministrants/add-ministrant-dialog";
-import { SundaySchedule } from "@/components/schedule/sunday-schedule"; // <--- Import grafiku
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // <--- Import zakładek
+import { SundaySchedule } from "@/components/schedule/sunday-schedule";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WeekdaySchedule } from "@/components/schedule/weekday-schedule";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function Home() {
   return (
@@ -11,16 +12,17 @@ export default function Home() {
         <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl">
           LSO Manager
         </h1>
-        {/* Przycisk dodawania zostawiamy widoczny zawsze, ale można go schować w zakładce */}
-        <AddMinistrantDialog /> 
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <AddMinistrantDialog />
+        </div>
       </div>
       
       <Tabs defaultValue="ministrants" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-8">
+        <TabsList className="grid w-full grid-cols-3 mb-8">
           <TabsTrigger value="ministrants">Lista Ministrantów</TabsTrigger>
           <TabsTrigger value="schedule">Grafik Niedzielny</TabsTrigger>
-            <TabsTrigger value="weekday">Grafik Tygodniowy</TabsTrigger> {/* NOWE */}
-
+          <TabsTrigger value="weekday">Grafik Tygodniowy</TabsTrigger>
         </TabsList>
         
         <TabsContent value="ministrants">
