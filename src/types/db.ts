@@ -68,6 +68,8 @@ export type WeekdayTemplate = {
   ministrant_id: number;
   day_of_week: DayOfWeek;
   time_slot: TimeSlot;
+  valid_from: string; // YYYY-MM-DD - od kiedy obowiązuje
+  valid_to: string | null; // YYYY-MM-DD - do kiedy obowiązuje (null = nadal aktywny)
   ministrants?: Ministrant;
 };
 

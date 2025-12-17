@@ -11,6 +11,7 @@ import {
   subMonths,
   getDay,
   getDate,
+  lastDayOfMonth,
 } from "date-fns";
 import { pl } from "date-fns/locale";
 import { 
@@ -23,12 +24,10 @@ import {
 import { getMinistrants } from "@/lib/api/ministrants";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ChevronLeft, ChevronRight, Loader2, Check, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TimeSlot, DayOfWeek, WeekdayTemplate } from "@/types/db";
@@ -56,18 +55,23 @@ interface WeekdayScheduleProps {
 export function WeekdaySchedule({ editMode = false, onEditModeChange }: WeekdayScheduleProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [addingTo, setAddingTo] = useState<{ day: DayOfWeek; slot: TimeSlot } | null>(null);
-  const [selectedMinistrant, setSelectedMinistrant] = useState<string>("");
+  // Map: "dayId-slotId" -> array of selected ministrant ids
+  const [selectedToAdd, setSelectedToAdd] = useState<Record<string, number[]>>({});
+  const [openPopoverFor, setOpenPopoverFor] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Obliczanie dni w miesiącu
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  
+  const monthStartStr = format(monthStart, "yyyy-MM-dd");
+  const monthEndStr = format(monthEnd, "yyyy-MM-dd");
 
-  // Pobieranie szablonu (kto służy w który dzień)
+  // Pobieranie szablonu (kto służy w który dzień) - filtrowane po miesiącu
   const { data: templates, isLoading: templatesLoading } = useQuery({
-    queryKey: ["weekday-templates"],
-    queryFn: getWeekdayTemplates,
+    queryKey: ["weekday-templates", monthStartStr],
+    queryFn: () => getWeekdayTemplates(monthStartStr, monthEndStr),
   });
 
   // Pobieranie ministrantów (tylko w trybie edycji)
@@ -79,11 +83,8 @@ export function WeekdaySchedule({ editMode = false, onEditModeChange }: WeekdayS
 
   // Pobieranie obecności na dany miesiąc
   const { data: attendance, isLoading: attendanceLoading } = useQuery({
-    queryKey: ["weekday-attendance", format(monthStart, "yyyy-MM-dd")],
-    queryFn: () => getWeekdayAttendance(
-      format(monthStart, "yyyy-MM-dd"),
-      format(monthEnd, "yyyy-MM-dd")
-    ),
+    queryKey: ["weekday-attendance", monthStartStr],
+    queryFn: () => getWeekdayAttendance(monthStartStr, monthEndStr),
     enabled: !editMode,
   });
 
@@ -100,14 +101,12 @@ export function WeekdaySchedule({ editMode = false, onEditModeChange }: WeekdayS
     mutationFn: addWeekdayTemplate,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["weekday-templates"] });
-      setAddingTo(null);
-      setSelectedMinistrant("");
     },
   });
 
   // Mutacja usuwania ministranta z szablonu
   const deleteMutation = useMutation({
-    mutationFn: deleteWeekdayTemplate,
+    mutationFn: ({ id, endDate }: { id: number; endDate: string }) => deleteWeekdayTemplate(id, endDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["weekday-templates"] });
     },
@@ -163,19 +162,11 @@ export function WeekdaySchedule({ editMode = false, onEditModeChange }: WeekdayS
     });
   };
 
-  // Dodaj ministranta do szablonu
-  const handleAdd = (day: DayOfWeek, slot: TimeSlot) => {
-    if (!selectedMinistrant) return;
-    addMutation.mutate({
-      ministrant_id: Number(selectedMinistrant),
-      day_of_week: day,
-      time_slot: slot,
-    });
-  };
-
-  // Usuń ministranta z szablonu
+  // Usuń ministranta z szablonu (soft delete - ustawia valid_to na koniec poprzedniego miesiąca)
   const handleDelete = (templateId: number) => {
-    deleteMutation.mutate(templateId);
+    // Koniec poprzedniego miesiąca = ostatni dzień przed pierwszym dniem aktualnego miesiąca
+    const prevMonthEnd = format(lastDayOfMonth(subMonths(currentMonth, 1)), "yyyy-MM-dd");
+    deleteMutation.mutate({ id: templateId, endDate: prevMonthEnd });
   };
 
   const isLoading = templatesLoading || (editMode && ministrantsLoading) || (!editMode && attendanceLoading);
@@ -229,7 +220,6 @@ export function WeekdaySchedule({ editMode = false, onEditModeChange }: WeekdayS
           SLOTS.map((slot) => {
             const daysOfThisWeekday = getDaysOfWeekday(day.id);
             const slotTemplates = getTemplatesForSlot(day.id, slot.id);
-            const isAddingHere = addingTo?.day === day.id && addingTo?.slot === slot.id;
             const availableMinistrants = getAvailableMinistrants(day.id, slot.id);
 
             return (
@@ -238,105 +228,140 @@ export function WeekdaySchedule({ editMode = false, onEditModeChange }: WeekdayS
                 className="rounded-lg border bg-card overflow-hidden"
               >
                 {/* Header karty */}
-                <div className="flex items-center justify-between bg-muted/50 px-4 py-2.5 border-b">
+                <div className="flex items-center justify-between bg-muted/40 px-4 py-2.5 border-b border-border/50">
                   <div className="flex items-center gap-3">
-                    <span className="font-bold">{day.full}</span>
-                    <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                      {slot.name} {slot.time}
+                    <span className="font-semibold">{day.full}</span>
+                    <span className="text-xs font-medium text-muted-foreground bg-muted/70 px-2 py-0.5 rounded-full">
+                      {slot.name} · {slot.time}
                     </span>
                   </div>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-[11px] text-muted-foreground">
                     {slotTemplates.length} ministrantów
                   </span>
                 </div>
 
                 {/* Zawartość - tryb edycji vs normalny */}
                 {editMode ? (
-                  // TRYB EDYCJI - lista z możliwością dodawania/usuwania
-                  <div className="p-4 space-y-2">
-                    {slotTemplates.length === 0 && !isAddingHere && (
-                      <p className="text-sm text-muted-foreground py-4 text-center">
-                        Brak przypisanych ministrantów
-                      </p>
-                    )}
+                  // TRYB EDYCJI
+                  <div className="px-4 pb-4 pt-3 space-y-3 text-[12px] leading-tight">
+                    {/* Przypisani ministranci */}
+                    {slotTemplates.length > 0 && (
+                      <div className="space-y-1.5">
+                        {slotTemplates.map((template) => {
+                          const ministrant = template.ministrants;
+                          if (!ministrant) return null;
 
-                    {slotTemplates.map((template) => {
-                      const ministrant = template.ministrants;
-                      if (!ministrant) return null;
-
-                      return (
-                        <div
-                          key={template.id}
-                          className="flex items-center justify-between rounded-lg border px-3 py-2 hover:bg-destructive/10 transition-colors"
-                        >
-                          <span className="font-medium text-sm">
-                            {ministrant.last_name} {ministrant.first_name}
-                          </span>
-                          <button
-                            onClick={() => handleDelete(template.id)}
-                            disabled={deleteMutation.isPending}
-                            className="text-destructive hover:text-destructive/80 p-1"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      );
-                    })}
-
-                    {/* Formularz dodawania */}
-                    {isAddingHere && (
-                      <div className="flex items-center gap-2 pt-2">
-                        <Select
-                          value={selectedMinistrant}
-                          onValueChange={setSelectedMinistrant}
-                        >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Wybierz ministranta" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableMinistrants.map((m) => (
-                              <SelectItem key={m.id} value={m.id.toString()}>
-                                {m.last_name} {m.first_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          size="sm"
-                          onClick={() => handleAdd(day.id, slot.id)}
-                          disabled={!selectedMinistrant || addMutation.isPending}
-                        >
-                          {addMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Check className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setAddingTo(null);
-                            setSelectedMinistrant("");
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                          return (
+                            <div
+                              key={template.id}
+                              className="flex items-center justify-between rounded-md border border-border/50 bg-background/50 px-3 py-2.5 hover:bg-muted/15 transition-colors"
+                            >
+                              <span className="text-[13px] font-semibold leading-tight">
+                                {ministrant.last_name} {ministrant.first_name}
+                              </span>
+                              <button
+                                onClick={() => handleDelete(template.id)}
+                                disabled={deleteMutation.isPending}
+                                className="text-destructive hover:text-destructive/80 p-1"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 
-                    {/* Przycisk dodawania */}
-                    {!isAddingHere && availableMinistrants.length > 0 && (
-                      <button
-                        onClick={() => {
-                          setAddingTo({ day: day.id, slot: slot.id });
-                          setSelectedMinistrant("");
-                        }}
-                        className="w-full flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Dodaj ministranta
-                      </button>
+                    {/* Lista wyboru do dodania */}
+                    {availableMinistrants.length > 0 && (() => {
+                      const slotKey = `${day.id}-${slot.id}`;
+                      const selected = selectedToAdd[slotKey] || [];
+                      const isOpen = openPopoverFor === slotKey;
+                      
+                      const toggleMinistrant = (id: number) => {
+                        setSelectedToAdd(prev => {
+                          const current = prev[slotKey] || [];
+                          if (current.includes(id)) {
+                            return { ...prev, [slotKey]: current.filter(x => x !== id) };
+                          } else {
+                            return { ...prev, [slotKey]: [...current, id] };
+                          }
+                        });
+                      };
+                      
+                      const handleAddSelected = () => {
+                        selected.forEach(ministrantId => {
+                          addMutation.mutate({
+                            ministrant_id: ministrantId,
+                            day_of_week: day.id,
+                            time_slot: slot.id,
+                            valid_from: monthStartStr, // Szablon obowiązuje od pierwszego dnia edytowanego miesiąca
+                          });
+                        });
+                        setSelectedToAdd(prev => ({ ...prev, [slotKey]: [] }));
+                        setOpenPopoverFor(null);
+                      };
+                      
+                      return (
+                        <Popover open={isOpen} onOpenChange={(open) => setOpenPopoverFor(open ? slotKey : null)}>
+                          <PopoverTrigger asChild>
+                            <button
+                              className="w-full flex items-center justify-center gap-2 rounded-md border border-muted-foreground/40 py-2.5 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                            >
+                              <Plus className="h-4 w-4" />
+                              Dodaj ministranta
+                              {selected.length > 0 && (
+                                <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                                  {selected.length}
+                                </span>
+                              )}
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 p-0" align="start">
+                            <div className="divide-y divide-border/30 max-h-[250px] overflow-y-auto">
+                              {availableMinistrants.map((m) => (
+                                <label
+                                  key={m.id}
+                                  className="flex items-center gap-2 px-3 py-2.5 hover:bg-muted/30 cursor-pointer transition-colors"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selected.includes(m.id)}
+                                    onChange={() => toggleMinistrant(m.id)}
+                                    className="h-4 w-4 rounded border-border"
+                                  />
+                                  <span className="text-[13px]">
+                                    {m.last_name} {m.first_name}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                            {selected.length > 0 && (
+                              <div className="p-2 border-t border-border/50">
+                                <Button
+                                  size="sm"
+                                  onClick={handleAddSelected}
+                                  disabled={addMutation.isPending}
+                                  className="w-full"
+                                >
+                                  {addMutation.isPending ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  ) : (
+                                    <Check className="h-4 w-4 mr-2" />
+                                  )}
+                                  Dodaj ({selected.length})
+                                </Button>
+                              </div>
+                            )}
+                          </PopoverContent>
+                        </Popover>
+                      );
+                    })()}
+
+                    {availableMinistrants.length === 0 && slotTemplates.length === 0 && (
+                      <p className="text-sm text-muted-foreground py-4 text-center border border-border/40 rounded-md">
+                        Brak ministrantów do przypisania
+                      </p>
                     )}
 
                     {availableMinistrants.length === 0 && slotTemplates.length > 0 && (
@@ -347,17 +372,17 @@ export function WeekdaySchedule({ editMode = false, onEditModeChange }: WeekdayS
                   </div>
                 ) : (
                   // TRYB NORMALNY - tabela jak w referencji
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto px-4 pb-4 pt-2">
                     <table className="w-full border-collapse text-[12px] leading-tight">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left text-[12px] font-semibold text-muted-foreground uppercase px-3 py-2 min-w-[140px]">
+                          <th className="text-left text-[12px] font-semibold text-muted-foreground uppercase px-3 py-2 min-w-[130px]">
                             Ministrant
                           </th>
                           {daysOfThisWeekday.map((dayDate) => (
                             <th
                               key={dayDate.toISOString()}
-                              className="text-center text-[12px] font-semibold text-muted-foreground px-1.5 py-1 w-[28px] border-l border-border/40"
+                              className="text-center text-[12px] font-semibold text-muted-foreground px-1.5 py-1 w-[26px] border-l border-border/40"
                             >
                               {getDate(dayDate)}
                             </th>
@@ -395,19 +420,19 @@ export function WeekdaySchedule({ editMode = false, onEditModeChange }: WeekdayS
                                       key={dayDate.toISOString()}
                                       className="p-0 text-center align-middle border-l border-border/40"
                                     >
-                                      <div className="flex items-center justify-center py-[5px]">
+                                      <div className="flex items-center justify-center py-[6px]">
                                         <button
                                           onClick={() => handleCellClick(ministrant.id, dateStr, slot.id)}
                                           disabled={attendanceMutation.isPending}
                                           className={cn(
-                                            "w-7 h-7 rounded text-[12px] font-semibold leading-none transition-all",
+                                            "w-8 h-8 rounded text-[13px] font-bold leading-none transition-all",
                                             status === true && "bg-green-600 text-white hover:bg-green-700",
                                             status === false && "bg-red-600 text-white hover:bg-red-700",
-                                            status === null && "bg-muted/30 border border-muted-foreground/30 hover:border-muted-foreground/50 hover:bg-muted/50"
+                                            status === null && "bg-muted/30 border border-border/40 hover:border-muted-foreground/60 hover:bg-muted/60"
                                           )}
                                         >
-                                          {status === true && "o"}
-                                          {status === false && "n"}
+                                          {status === true && "O"}
+                                          {status === false && "N"}
                                         </button>
                                       </div>
                                     </td>
