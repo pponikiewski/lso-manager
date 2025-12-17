@@ -31,6 +31,7 @@ export async function createMinistrant(newMinistrant: {
   first_name: string;
   last_name: string;
   rank_id: number;
+  group_id: number; // <--- Nowe pole
 }) {
   const supabase = createClient();
   const { error } = await supabase.from("ministrants").insert(newMinistrant);

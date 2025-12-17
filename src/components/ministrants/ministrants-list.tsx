@@ -44,6 +44,7 @@ export function MinistrantsList() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[50px]">Lp.</TableHead>
+              <TableHead>Grupa</TableHead>
               <TableHead>Ministrant</TableHead>
               <TableHead>Ostatnie służby</TableHead>
               <TableHead className="text-right">Punkty</TableHead>
@@ -54,6 +55,9 @@ export function MinistrantsList() {
             {ministrants?.map((min, index) => (
               <TableRow key={min.id}>
                 <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                  <TableCell className="text-sm font-semibold text-muted-foreground"> {/* <--- NOWE */}
+    {min.groups?.name || "-"}
+  </TableCell>
                 <TableCell>
                   <div className="font-medium">{min.first_name} {min.last_name}</div>
                   <Badge 

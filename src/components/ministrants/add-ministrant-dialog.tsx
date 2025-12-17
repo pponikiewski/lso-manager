@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { createMinistrant, getRanks } from "@/lib/api/ministrants";
+import { createMinistrant, getRanks, getGroups } from "@/lib/api/ministrants"; // <--- getGroups
 
 import { Button } from "@/components/ui/button";
 import {
@@ -32,46 +32,51 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Schemat walidacji formularza
 const formSchema = z.object({
   first_name: z.string().min(2, "Imię musi mieć min. 2 znaki"),
   last_name: z.string().min(2, "Nazwisko musi mieć min. 2 znaki"),
-  rank_id: z.string().min(1, "Wybierz stopień"), // Select zwraca stringa, przekonwertujemy go
+  rank_id: z.string().min(1, "Wybierz stopień"),
+  group_id: z.string().min(1, "Wybierz grupę"), // <--- Walidacja grupy
 });
 
 export function AddMinistrantDialog() {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  // 1. Pobieramy stopnie do selecta
+  // Pobieramy stopnie
   const { data: ranks } = useQuery({
     queryKey: ["ranks"],
     queryFn: getRanks,
   });
 
-  // 2. Setup formularza
+  // Pobieramy grupy
+  const { data: groups } = useQuery({
+    queryKey: ["groups"],
+    queryFn: getGroups,
+  });
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       first_name: "",
       last_name: "",
       rank_id: "",
+      group_id: "",
     },
   });
 
-  // 3. Mutacja (Wysyłka danych)
   const mutation = useMutation({
     mutationFn: (values: z.infer<typeof formSchema>) =>
       createMinistrant({
         first_name: values.first_name,
         last_name: values.last_name,
         rank_id: Number(values.rank_id),
+        group_id: Number(values.group_id), // <--- Przekazujemy ID grupy
       }),
     onSuccess: () => {
-      // Odśwież listę ministrantów automatycznie!
       queryClient.invalidateQueries({ queryKey: ["ministrants"] });
-      setOpen(false); // Zamknij modal
-      form.reset(); // Wyczyść formularz
+      setOpen(false);
+      form.reset();
     },
     onError: (error) => {
       alert("Błąd: " + error.message);
@@ -94,33 +99,35 @@ export function AddMinistrantDialog() {
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="first_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Imię</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Jan" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="last_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nazwisko</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Kowalski" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="first_name"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Imię</FormLabel>
+                    <FormControl>
+                        <Input placeholder="Jan" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                
+                <FormField
+                control={form.control}
+                name="last_name"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Nazwisko</FormLabel>
+                    <FormControl>
+                        <Input placeholder="Kowalski" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
 
             <FormField
               control={form.control}
@@ -138,6 +145,32 @@ export function AddMinistrantDialog() {
                       {ranks?.map((rank) => (
                         <SelectItem key={rank.id} value={rank.id.toString()}>
                           {rank.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Nowe pole wyboru grupy */}
+            <FormField
+              control={form.control}
+              name="group_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Grupa</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Wybierz grupę" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {groups?.map((group) => (
+                        <SelectItem key={group.id} value={group.id.toString()}>
+                          {group.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
