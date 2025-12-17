@@ -16,3 +16,18 @@ export type Ministrant = {
   // Opcjonalnie, jeśli dołączymy tabelę ranks w zapytaniu (join):
   ranks?: Rank; 
 };
+export type AttendanceType = 'R' | 'W' | 'S' | 'N';
+
+export type AttendanceLog = {
+  id: number;
+  ministrant_id: number;
+  event_type: AttendanceType;
+  score: number;
+  event_date: string;
+  created_at: string;
+};
+
+// Zaktualizujmy też typ Ministrant, bo teraz będziemy chcieli pobierać go razem z historią
+export type MinistrantWithLogs = Ministrant & {
+  attendance_logs: AttendanceLog[];
+};
