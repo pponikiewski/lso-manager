@@ -5,17 +5,24 @@ export type Rank = {
   color: string;
 };
 
+export type Group = {
+  id: number;
+  name: string;
+};
+
 export type Ministrant = {
   id: number;
   first_name: string;
   last_name: string;
   rank_id: number;
+  group_id: number | null; // Może być null, jeśli ktoś nie ma grupy
   points: number;
   is_active: boolean;
   created_at: string;
-  // Opcjonalnie, jeśli dołączymy tabelę ranks w zapytaniu (join):
-  ranks?: Rank; 
+  ranks?: Rank;
+  groups?: Group; // <--- To pozwoli nam pobrać nazwę grupy (join)
 };
+
 export type AttendanceType = 'R' | 'W' | 'S' | 'N';
 
 export type AttendanceLog = {

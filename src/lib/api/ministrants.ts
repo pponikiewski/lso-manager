@@ -1,12 +1,12 @@
 import { createClient } from "@/lib/supabase/client";
-import { Ministrant, Rank, MinistrantWithLogs, AttendanceType } from "@/types/db";
+import { Ministrant, Rank, MinistrantWithLogs, AttendanceType, Group } from "@/types/db";
 
 export async function getMinistrants() {
   const supabase = createClient();
   
   const { data, error } = await supabase
     .from("ministrants")
-    .select("*, ranks(*), attendance_logs(*)") // Pobieramy też logi
+    .select("*, ranks(*), attendance_logs(*), groups(*)") // Pobieramy też logi
     .order("points", { ascending: false });    // Sortujemy po punktach
     // Uwaga: Normalnie logi też byśmy sortowali lub limitowali (np. ostatnie 5), 
     // ale Supabase SDK robi to trochę inaczej. Na razie pobierzmy wszystkie, 
@@ -46,4 +46,11 @@ export async function addAttendance(payload: {
   const supabase = createClient();
   const { error } = await supabase.from("attendance_logs").insert(payload);
   if (error) throw error;
+}
+
+export async function getGroups() {
+  const supabase = createClient();
+  const { data, error } = await supabase.from("groups").select("*").order("name");
+  if (error) throw error;
+  return data as Group[];
 }
